@@ -54,6 +54,7 @@ class _HomeScreenState extends State<HomeScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    _tabController.addListener(_onTabChanged);
     _loadBannerAd();
     _preloadInterstitialAd();
     _loadRecords();
@@ -77,8 +78,21 @@ class _HomeScreenState extends State<HomeScreen>
     }
   }
 
+  void _onTabChanged() {
+    if (_tabController.indexIsChanging) return;
+    // 실수령액 탭의 연봉을 인상 비교의 '현재 연봉'으로 전달
+    if (_tabController.index == 1) {
+      final annual = _annualController.text.trim();
+      if (annual.isNotEmpty && _currentAnnualController.text != annual) {
+        _currentAnnualController.text = annual;
+        _recalculateRaise();
+      }
+    }
+  }
+
   @override
   void dispose() {
+    _tabController.removeListener(_onTabChanged);
     _tabController.dispose();
     for (final c in [
       _annualController,
@@ -424,7 +438,7 @@ class _HomeScreenState extends State<HomeScreen>
               Expanded(
                 child: _buildTextField(
                   controller: _dependentsController,
-                  label: '부양가족 수',
+                  label: '부양가족 수 (본인 포함)',
                   hint: '1',
                   keyboardType: TextInputType.number,
                   inputFormatters: [
@@ -505,12 +519,12 @@ class _HomeScreenState extends State<HomeScreen>
 
   Widget _buildDeductionList(SalaryResult result) {
     final items = [
-      ('국민연금', result.nationalPension),
-      ('건강보험', result.healthInsurance),
-      ('장기요양', result.longTermCare),
-      ('고용보험', result.employmentInsurance),
-      ('근로소득세', result.incomeTax),
-      ('지방소득세', result.localTax),
+      ('국민연금 (4.5%)', result.nationalPension),
+      ('건강보험 (3.545%)', result.healthInsurance),
+      ('장기요양 (건강보험의 12.95%)', result.longTermCare),
+      ('고용보험 (0.9%)', result.employmentInsurance),
+      ('근로소득세 (3~8%)', result.incomeTax),
+      ('지방소득세 (소득세의 10%)', result.localTax),
     ];
 
     return Container(
@@ -705,49 +719,55 @@ class _HomeScreenState extends State<HomeScreen>
             ),
           ),
           const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: _compareCard(
-                  title: '소득 백분위',
-                  content: hasBoth
-                      ? '${_maskPercentile(_currentRaiseResult.percentileLabel)} ➡ ${_maskPercentile(_raisedResult.percentileLabel)}'
-                      : '-',
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  child: _compareCard(
+                    title: '소득 백분위',
+                    content: hasBoth
+                        ? '${_maskPercentile(_currentRaiseResult.percentileLabel)} ➡ ${_maskPercentile(_raisedResult.percentileLabel)}'
+                        : '-',
+                  ),
                 ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _compareCard(
-                  title: '세금 공제 차액',
-                  content: hasBoth
-                      ? (isPrivacyMode
-                          ? '***,***원'
-                          : '${taxDiff >= 0 ? '+' : ''}${formatCurrency(taxDiff)}')
-                      : '-',
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _compareCard(
+                    title: '세금 공제 차액',
+                    content: hasBoth
+                        ? (isPrivacyMode
+                            ? '***,***원'
+                            : '${taxDiff >= 0 ? '+' : ''}${formatCurrency(taxDiff)}')
+                        : '-',
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
           const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: _compareCard(
-                  title: '현재 월 실수령',
-                  content: hasBoth
-                      ? _maskMoney(_currentRaiseResult.monthlyNet)
-                      : '-',
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  child: _compareCard(
+                    title: '현재 월 실수령',
+                    content: hasBoth
+                        ? _maskMoney(_currentRaiseResult.monthlyNet)
+                        : '-',
+                  ),
                 ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _compareCard(
-                  title: '인상 후 월 실수령',
-                  content:
-                      hasBoth ? _maskMoney(_raisedResult.monthlyNet) : '-',
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _compareCard(
+                    title: '인상 후 월 실수령',
+                    content:
+                        hasBoth ? _maskMoney(_raisedResult.monthlyNet) : '-',
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
           const SizedBox(height: 20),
           ElevatedButton(
@@ -761,6 +781,7 @@ class _HomeScreenState extends State<HomeScreen>
 
   Widget _compareCard({required String title, required String content}) {
     return Container(
+      width: double.infinity,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: AppTheme.surface,
@@ -822,7 +843,7 @@ class _HomeScreenState extends State<HomeScreen>
               Expanded(
                 child: _buildTextField(
                   controller: _reverseDependentsController,
-                  label: '부양가족 수',
+                  label: '부양가족 수 (본인 포함)',
                   hint: '1',
                   keyboardType: TextInputType.number,
                   inputFormatters: [
